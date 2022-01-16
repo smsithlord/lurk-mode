@@ -1,6 +1,4 @@
 function LurkMode() {
-	this.state = 0;
-
 	// helper utility to create enums.
 	function createEnum(values) {
 		const enumObject = {};
@@ -10,9 +8,9 @@ function LurkMode() {
 		return Object.freeze(enumObject);
 	}
 	this.enums = {};
-	this.enums.state = createEnum(['Uninitialized', 'Initializing', 'Initialized', 'Ready', 'Connecting', 'Connected', 'Disconnecting', 'Reconnecting', 'Error']);
+	this.enums.state = createEnum(['UNINITIALIZED', 'INITIALIZED', 'INITIALIZING', 'READY', 'CONNECTING', 'CONNECTED', 'DISCONNECTING', 'ERROR']);
+	this.state = this.enums.state.UNINITIALIZED;
 	this.events = {};
-	this.state = this.enums.state.Uninitialized;
 }
 
 /*
@@ -22,14 +20,25 @@ root
 	channels
 		$USERID
 			data
-				name
+				channel//all lowercase
+				title//so that the title can be AnarchyTV instead of "anarchytv", etc.
 			objects
+				$USERID
+					$OBJECTID
+						transform
+							pos
+							rot
+							scale
+							model
+						data
+							title
+							file
 			chat
 				$USERID
-					$MESSAGEID
-						text
-						timestamp
-						room
+					name
+					text
+					timestamp
+					room
 			rooms
 				$ROOMID
 					objects
@@ -117,7 +126,7 @@ LurkMode.prototype.login = function() {
 		signInFlow: 'popup',
 		signInSuccessUrl: '<url-to-redirect-to-on-success>',
 		signInOptions: [
-			firebase.auth.EmailAuthProvider.PROVIDER_ID
+			this.auth.EmailAuthProvider.PROVIDER_ID
 		],
 		// Terms of service url.
 		tosUrl: '<your-tos-url>',
@@ -130,12 +139,29 @@ LurkMode.prototype.login = function() {
 };
 
 LurkMode.prototype.loginGuest = function() {
+	var self = this;
 	return new Promise((resolve, reject) => {
-		firebase.auth().signInAnonymously()
+		self.auth.signInAnonymously()
 		.then(() => {
 			resolve();
 		})
 		.catch(reject);
+	});
+};
+
+LurkMode.prototype.joinChannel = function(channel) {
+	var self = this;
+	return new Promise((resolve, reject) => {
+		// set us as connecting right away
+		self.setSystemState(self.enums.state.CONNECTING);
+
+		// TODO: join the channel, asyncly...
+		// ...
+
+		// then...
+		self.setSystemState(self.enums.state.CONNECTED);	// the "Connected"
+		console.log('fake news. not really connected.');
+		resolve();
 	});
 };
 
@@ -151,7 +177,8 @@ LurkMode.prototype.firebaseConnect = function() {
 		// and `false` when disconnected.
 
 		var promisePending = true;
-		firebase.database().ref('.info/connected').on('value', function(snapshot) {
+		self.database = firebase.database();
+		self.database.ref('.info/connected').on('value', function(snapshot) {
 			// If we're not currently connected, don't do anything.
 			if (snapshot.val() == false) {
 				if( !promisePending ) {	// we start off disconnected at first, until our initial promise is resolved.
@@ -205,10 +232,11 @@ LurkMode.prototype.initialize = function() {
 	var self = this;
 	return new Promise((resolve, reject) => {
 		// switch states right away
-		self.setSystemState(self.enums.state.Initializing);
+		self.setSystemState(self.enums.state.INITIALIZING);
 
 		self.app = firebase.initializeApp(firebaseConfig);
-		var ui = new firebaseui.auth.AuthUI(firebase.auth());	// NOTE: We only really need the UI stuff on pages that need to utlize the auth UI.  (Maybe all pages still?)
+		self.auth = firebase.auth();
+		var ui = new firebaseui.auth.AuthUI(self.auth);	// NOTE: We only really need the UI stuff on pages that need to utlize the auth UI.  (Maybe all pages still?)
 		self.ui = ui;
 
 		// connect to Firebase database
@@ -222,18 +250,18 @@ LurkMode.prototype.initialize = function() {
 				if( promisePending ) {
 					promisePending = false;
 					if( user ) {
-						self.setSystemState(self.enums.state.Initialized);
+						self.setSystemState(self.enums.state.INITIALIZED);
 						resolve();
 					}
 					else {
-						self.setSystemState(self.enums.state.Error);
+						self.setSystemState(self.enums.state.ERROR);
 						reject();
 					}
 				}
 			}
-			firebase.auth().onAuthStateChanged(onAuthStateChanged);
+			self.auth.onAuthStateChanged(onAuthStateChanged);
 		}).catch((err) => {
-			self.state = self.enums.state.Error;
+			self.state = self.enums.state.ERROR;
 			self.fire('system:error');
 			reject(err);
 		});
@@ -248,7 +276,7 @@ LurkMode.prototype.begin = function() {
 			// login
 			self.loginAuto().then(() => {
 				// now we're ready.
-				self.setSystemState(self.enums.state.Ready);
+				self.setSystemState(self.enums.state.READY);
 				resolve();
 			}).catch(reject);
 		}).catch(reject);

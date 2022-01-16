@@ -12,6 +12,7 @@
 	<script src="lurk.js"></script>
 	<body>
 		Hello world.
+		<!-- input type="button" value="Join Channel" onclick="joinChannel();" / -->
 		<div>
 			<!-- The surrounding HTML is left untouched by FirebaseUI.
 			     Your app may use that space for branding, controls and other customizations.-->
@@ -21,22 +22,39 @@
 		</div>
 
 		<script>
-			var lurk = navigator.lurk;
-			lurk.on('system:initialized', function() {
-				console.log('all systems go.');
-				//navigator.lurk.login();
-				lurk.loginGuest();
-			});
+			// is a channel specified?
+			var urlParams = new URLSearchParams(window.location.search);
+			var channel = urlParams.get('channel');
 
+			if( channel ) {
+				var lurk = navigator.lurk;
+				lurk.on('system:initialized', function() {
+					console.log('all systems go.');
+					//navigator.lurk.login();
+					lurk.loginGuest();
+				});
 
-			lurk.on('system:stateChanged', (data) => {
-				if( data.state == 'Ready' ) {
-					console.log("all systems go.");
+				lurk.on('system:stateChanged', (data) => {
+					if( data.state == 'READY' ) {
+						console.log("all systems go.");
+						//console.log(lurk.auth.currentUser);
+						console.log('Current annon user ID: ' + lurk.auth.currentUser.uid);
+						joinChannel();
+					}
+				});
+
+				function joinChannel() {
+					console.log('joining the channel: ' + channel);
+					lurk.joinChannel(channel).then(() => {
+						console.log('joined.');
+					}).catch((err) => {
+						console.log('failed to join.');
+					});
 				}
-			});
 
-			// should be the very last thing on the page.
-			lurk.begin();
+				// should be the very last thing on the page.
+				lurk.begin();
+			}
 		</script>
 	</body>
 </html>
