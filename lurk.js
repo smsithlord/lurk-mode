@@ -11,9 +11,7 @@ function LurkMode() {
 	}
 	this.enums = {};
 	this.enums.state = createEnum(['Uninitialized', 'Initializing', 'Initialized', 'Connecting', 'Connected', 'Disconnecting', 'Disconnected', 'Reconnecting']);
-
 	this.events = {};
-
 	this.state = this.enums.state.Uninitialized;
 }
 
@@ -52,6 +50,12 @@ LurkMode.prototype.once = function(eventName, handler, scope) {
 LurkMode.prototype.initialize = function() {
 	this.state = this.enums.state.Initializing;
 	this.fire('system:initializing');
+
+	// connect to Firebase
+	var app = firebase.initializeApp(firebaseConfig);
+	var database = app.database();
+	var auth = app.auth();
+	var root = database.ref();
 
 	this.state = this.enums.state.Initialized;
 	this.fire('system:initialized');

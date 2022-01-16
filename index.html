@@ -3,14 +3,17 @@
 		<title>lurkmode.tv</title>
 	</head>
 	<link rel="stylesheet" href="styles.css">
+	<script src="firebase_config.js"></script>
+	<script src="https://www.gstatic.com/firebasejs/9.6.3/firebase-app-compat.js"></script>
+	<script src="https://www.gstatic.com/firebasejs/9.6.3/firebase-database-compat.js"></script>
+	<script src="https://www.gstatic.com/firebasejs/9.6.3/firebase-auth-compat.js"></script>
 	<script src="lurk.js"></script>
 	<body>
 		Hello world.
 		<script>
 			navigator.lurk.on('system:initialized', function() {
-				console.log('initializedzzz');
+				console.log('all systems go.');
 			});
-			//console.log(navigator.lurk.enums.state);
 		</script>
 	</body>
 </html>
