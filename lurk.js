@@ -8,9 +8,10 @@ function LurkMode() {
 		return Object.freeze(enumObject);
 	}
 	this.enums = {};
-	this.enums.state = createEnum(['UNINITIALIZED', 'INITIALIZED', 'INITIALIZING', 'READY', 'CONNECTING', 'CONNECTED', 'DISCONNECTING', 'ERROR']);
+	this.enums.state = createEnum(['UNINITIALIZED', 'INITIALIZING', 'INITIALIZED', 'READY', 'CONNECTING', 'CONNECTED', 'DISCONNECTING', 'ERROR']);
 	this.state = this.enums.state.UNINITIALIZED;
 	this.events = {};
+	this.activeChannel = null;
 }
 
 /*
@@ -155,13 +156,14 @@ LurkMode.prototype.joinChannel = function(channel) {
 		// set us as connecting right away
 		self.setSystemState(self.enums.state.CONNECTING);
 
-		// TODO: join the channel, asyncly...
-		// ...
+		// channel:join
 
-		// then...
-		self.setSystemState(self.enums.state.CONNECTED);	// the "Connected"
-		console.log('fake news. not really connected.');
-		resolve();
+		self.activeChannel = new LurkModeChannel(channel);
+		self.activeChannel.initialize().then(() => {
+			self.activeChannel.registerDataListeners();
+			self.setSystemState(self.enums.state.CONNECTED);
+			resolve();
+		}).catch(reject);
 	});
 };
 
@@ -178,6 +180,7 @@ LurkMode.prototype.firebaseConnect = function() {
 
 		var promisePending = true;
 		self.database = firebase.database();
+		self.rootRef = self.database.ref();
 		self.database.ref('.info/connected').on('value', function(snapshot) {
 			// If we're not currently connected, don't do anything.
 			if (snapshot.val() == false) {
@@ -280,6 +283,93 @@ LurkMode.prototype.begin = function() {
 				resolve();
 			}).catch(reject);
 		}).catch(reject);
+	});
+};
+
+function LurkModeChannel(channel) {
+	this.channel = channel;
+	this.channelRef = null;
+	this.channelDataRef = null;
+}
+
+LurkModeChannel.prototype.initialize = function() {
+	let self = this;
+	return new Promise((resolve, reject) => {
+		let lurk = navigator.lurk;
+
+		// find the channel to join
+		lurk.rootRef.child('channels').orderByChild('data/channel').equalTo(self.channel).limitToFirst(1).once('child_added', (snapshot) => {
+			self.channelRef = lurk.rootRef.child('channels').child(snapshot.key);
+			self.channelDataRef = self.channelRef.child('data');
+
+			var channelData = snapshot.val();
+			if( !channelData.data ) {
+				// the channel does not exist.
+				console.error('Channel does not exist. Cannot join.');
+				lurk.setSystemState(lurk.enums.state.ERROR);
+				reject();
+			}
+			else {
+				resolve();
+			}
+		}).catch(reject);
+	});
+};
+
+LurkModeChannel.prototype.registerDataListeners = function() {
+	let self = this;
+	return new Promise((resolve, reject) => {
+		let lurk = navigator.lurk;
+		let promisePending = true;
+		self.channelDataRef.on('value', (snapshot) => {
+			// first, resolve the promise, if needed.
+			if( promisePending ) {
+				resolve();
+			}
+			
+			// then fire the event.
+			let val = snapshot.val();
+			lurk.fire('channel:dataChanged', val);
+
+			// and if needed, add the other listeners
+			if( promisePending ) {
+				promisePending = false;
+
+				// listeners for channel-level objects.
+				self.channelRef.child('objects').on('child_added', (objectsParentSnapshot) => {
+					// add listeners for objects under this parent.
+					let objectsParentRef = objectsParentSnapshot.ref;
+					objectsParentRef.on('child_added', (objectSnapshot) => {
+						let val = objectSnapshot.val();
+						lurk.fire('channel:objectChanged', objectSnapshot.key, val);
+					});
+					objectsParentRef.on('child_removed', (objectSnapshot) => {
+						//let val = objectSnapshot.val();
+						lurk.fire('channel:objectChanged', objectSnapshot.key, null);
+					});
+					objectsParentRef.on('child_changed', (objectSnapshot) => {
+						let val = objectSnapshot.val();
+						lurk.fire('channel:objectChanged', objectSnapshot.key, val);
+					});
+				});
+				self.channelRef.child('objects').on('child_removed', (objectsParentSnapshot) => {
+					// add listeners for objects under this parent.
+					let objectsParentRef = objectsParentSnapshot.ref;
+					objectsParentRef.off('child_added');
+					objectsParentRef.off('child_removed');
+					objectsParentRef.off('child_changed');
+					console.log('A batch of user objects have been removed.');
+				});
+
+				// listeners for chat
+				self.channelRef.child('chat').on('child_added', (chatParentSnapshot) => {
+					lurk.fire('channel:chat', chatParentSnapshot.key, chatParentSnapshot.val());
+				});
+				self.channelRef.child('chat').on('child_changed', (chatParentSnapshot) => {
+					lurk.fire('channel:chat', chatParentSnapshot.key, chatParentSnapshot.val());
+				});
+			}
+		});
 	});
 };
 

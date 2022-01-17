@@ -13,7 +13,7 @@
 	<body>
 		Hello world.
 		<!-- input type="button" value="Join Channel" onclick="joinChannel();" / -->
-		<div>
+		<div style="display: none;">
 			<!-- The surrounding HTML is left untouched by FirebaseUI.
 			     Your app may use that space for branding, controls and other customizations.-->
 			<h1>Welcome to My Awesome App</h1>
@@ -29,24 +29,24 @@
 			if( channel ) {
 				var lurk = navigator.lurk;
 				lurk.on('system:initialized', function() {
-					console.log('all systems go.');
-					//navigator.lurk.login();
-					lurk.loginGuest();
+					lurk.loginAuto();
 				});
 
 				lurk.on('system:stateChanged', (data) => {
 					if( data.state == 'READY' ) {
-						console.log("all systems go.");
-						//console.log(lurk.auth.currentUser);
-						console.log('Current annon user ID: ' + lurk.auth.currentUser.uid);
+						console.log('Current user ID: ' + lurk.auth.currentUser.uid);
 						joinChannel();
 					}
 				});
 
+				lurk.on('channel:dataChanged', (data) => {
+					console.log(data);
+				});
+
 				function joinChannel() {
-					console.log('joining the channel: ' + channel);
 					lurk.joinChannel(channel).then(() => {
-						console.log('joined.');
+						console.log('Joined & ready. Waiting for events.');
+						console.log("TODO: Must be async between fetching a channel's info & actually joining it.");
 					}).catch((err) => {
 						console.log('failed to join.');
 					});
