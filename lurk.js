@@ -8,7 +8,7 @@ function LurkMode() {
 		return Object.freeze(enumObject);
 	}
 	this.enums = {};
-	this.enums.state = createEnum(['UNINITIALIZED', 'INITIALIZING', 'INITIALIZED', 'READY', 'CONNECTING', 'CONNECTED', 'DISCONNECTING', 'ERROR']);
+	this.enums.state = createEnum(['UNINITIALIZED', 'INITIALIZING', 'INITIALIZED', 'READY', 'LOADING', 'RUNNING', 'UNLOADING', 'CONNECTING', 'CONNECTED', 'DISCONNECTING', 'ERROR']);
 	this.state = this.enums.state.UNINITIALIZED;
 	this.events = {};
 	this.activeChannel = null;
@@ -150,20 +150,39 @@ LurkMode.prototype.loginGuest = function() {
 	});
 };
 
-LurkMode.prototype.joinChannel = function(channel) {
+LurkMode.prototype.loadChannel = function(channel) {
 	var self = this;
 	return new Promise((resolve, reject) => {
 		// set us as connecting right away
-		self.setSystemState(self.enums.state.CONNECTING);
-
-		// channel:join
-
+		self.setSystemState(self.enums.state.LOADING);
 		self.activeChannel = new LurkModeChannel(channel);
-		self.activeChannel.initialize().then(() => {
+		self.activeChannel.initialize().then((channelData) => {
+			//self.activeChannel.registerDataListeners();
+			//self.setSystemState(self.enums.state.CONNECTED);
+			resolve(channelData);
+		}).catch(reject);
+	});
+};
+
+// called by the page after it has loaded the channel.
+LurkMode.prototype.channelLoaded = function() {
+	let channel = this.activeChannel.channel;
+	this.joinChannel(channel).then(() => {
+		console.log('channel joined successfully.');
+	});
+};
+
+LurkMode.prototype.joinChannel = function() {
+	var self = this;
+	return new Promise((resolve, reject) => {
+		// set us as connecting right away
+		//self.setSystemState(self.enums.state.CONNECTING);
+		//self.activeChannel = new LurkModeChannel(channel);
+		//self.activeChannel.initialize().then(() => {
 			self.activeChannel.registerDataListeners();
 			self.setSystemState(self.enums.state.CONNECTED);
 			resolve();
-		}).catch(reject);
+		//}).catch(reject);
 	});
 };
 
@@ -292,6 +311,24 @@ function LurkModeChannel(channel) {
 	this.channelDataRef = null;
 }
 
+LurkModeChannel.prototype.onChannelObjectChanged = function(id, data) {
+	// do any internal work here, before sending out the event.
+	// TODO: work
+	// ...
+
+	let lurk = navigator.lurk;
+	lurk.fire('channel:objectChanged', id, data);
+};
+
+LurkModeChannel.prototype.onChannelChat = function(id, data) {
+	// do any internal work here, before sending out the event.
+	// TODO: work
+	// ...
+
+	let lurk = navigator.lurk;
+	lurk.fire('channel:chat', id, data);
+};
+
 LurkModeChannel.prototype.initialize = function() {
 	let self = this;
 	return new Promise((resolve, reject) => {
@@ -310,7 +347,7 @@ LurkModeChannel.prototype.initialize = function() {
 				reject();
 			}
 			else {
-				resolve();
+				resolve(channelData);
 			}
 		}).catch(reject);
 	});
@@ -341,15 +378,15 @@ LurkModeChannel.prototype.registerDataListeners = function() {
 					let objectsParentRef = objectsParentSnapshot.ref;
 					objectsParentRef.on('child_added', (objectSnapshot) => {
 						let val = objectSnapshot.val();
-						lurk.fire('channel:objectChanged', objectSnapshot.key, val);
+						self.onChannelObjectChanged(objectSnapshot.key, val);
 					});
 					objectsParentRef.on('child_removed', (objectSnapshot) => {
 						//let val = objectSnapshot.val();
-						lurk.fire('channel:objectChanged', objectSnapshot.key, null);
+						self.onChannelObjectChanged(objectSnapshot.key, null);
 					});
 					objectsParentRef.on('child_changed', (objectSnapshot) => {
 						let val = objectSnapshot.val();
-						lurk.fire('channel:objectChanged', objectSnapshot.key, val);
+						self.onChannelObjectChanged(objectSnapshot.key, val);
 					});
 				});
 				self.channelRef.child('objects').on('child_removed', (objectsParentSnapshot) => {
@@ -363,10 +400,10 @@ LurkModeChannel.prototype.registerDataListeners = function() {
 
 				// listeners for chat
 				self.channelRef.child('chat').on('child_added', (chatParentSnapshot) => {
-					lurk.fire('channel:chat', chatParentSnapshot.key, chatParentSnapshot.val());
+					self.onChannelChat(chatParentSnapshot.key, chatParentSnapshot.val());
 				});
 				self.channelRef.child('chat').on('child_changed', (chatParentSnapshot) => {
-					lurk.fire('channel:chat', chatParentSnapshot.key, chatParentSnapshot.val());
+					self.onChannelChat(chatParentSnapshot.key, chatParentSnapshot.val());
 				});
 			}
 		});

@@ -11,7 +11,9 @@
 	<link rel="stylesheet" href="styles.css">
 	<script src="lurk.js"></script>
 	<body>
-		Hello world.
+		<div>Channel: <div class="channelAttribute" attribute="channel"></div></div>
+		<div>Title: <div class="channelAttribute" attribute="title"></div></div>
+		<div id="objectStage"></div>
 		<!-- input type="button" value="Join Channel" onclick="joinChannel();" / -->
 		<div style="display: none;">
 			<!-- The surrounding HTML is left untouched by FirebaseUI.
@@ -21,7 +23,16 @@
 			<div id="loader">Loading...</div>
 		</div>
 
+		<div style="display: none;">
+			<textarea id="objectHTML">
+				<div>Title: <div class="objectDataAttribute" attribute="title"></div></div>
+				<div>File: <div class="objectDataAttribute" attribute="file"></div></div>
+			</textarea>
+		</div>
+
 		<script>
+			var objectHTML = document.querySelector('#objectHTML').value;
+
 			// is a channel specified?
 			var urlParams = new URLSearchParams(window.location.search);
 			var channel = urlParams.get('channel');
@@ -40,13 +51,45 @@
 				});
 
 				lurk.on('channel:dataChanged', (data) => {
-					console.log(data);
+					for( let name in data ) {
+						let elems = document.querySelectorAll('.channelAttribute[attribute="' + name + '"]');
+						for( let i = 0; i < elems.length; i++ ) {
+							let elem = elems[i];
+							elem.innerHTML = '';
+							elem.appendChild(document.createTextNode(data[name]));
+						}
+					}
+				});
+
+				let objectStage = document.querySelector('#objectStage');
+				lurk.on('channel:objectChanged', (uid, data) => {
+					let objectElem = objectStage.querySelector('.object[uid="' + uid + '"]');
+					if( !objectElem ) {
+						objectElem = document.createElement('div');
+						objectElem.setAttribute('uid', uid);
+						objectElem.className = 'object';
+						objectStage.appendChild(objectElem);
+					}
+					objectElem.innerHTML = objectHTML;
+					
+					for( let name in data.data ) {
+						let elems = objectElem.querySelectorAll('.objectDataAttribute[attribute="' + name + '"]');
+						for( let i = 0; i < elems.length; i++ ) {
+							let elem = elems[i];
+							elem.innerHTML = '';
+							elem.appendChild(document.createTextNode(data.data[name]));
+						}
+					}
 				});
 
 				function joinChannel() {
-					lurk.joinChannel(channel).then(() => {
-						console.log('Joined & ready. Waiting for events.');
-						console.log("TODO: Must be async between fetching a channel's info & actually joining it.");
+					lurk.loadChannel(channel).then(() => {
+						// now load the channel
+						// TODO: work
+						// ...
+
+						// and then...
+						lurk.channelLoaded();
 					}).catch((err) => {
 						console.log('failed to join.');
 					});

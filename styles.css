@@ -1,4 +1,35 @@
 body {
 	background-color: #000;
 	color: #ccc;
+	font-family:  Arial;
+}
+
+#objectStage {
+	width:  1280px;
+	height:  720px;
+}
+
+.object {
+	width:  256px;
+	height: 256px;
+	border:  2px solid red;
+	padding:  20px;
+	border-radius:  20px;
+	background-color:  rgba(50, 30, 30, 0.7);
+}
+
+.channelAttribute {
+	font-size:  16px;
+	font-weight:  bold;
+	letter-spacing:  0.2em;
+	display: inline;
+	color:  rgb(200, 50, 50);
+}
+
+.objectDataAttribute {
+	font-size:  12px;
+	font-weight:  bold;
+	letter-spacing:  0.1em;
+	display: inline;
+	color:  rgb(200, 50, 50);
 }
